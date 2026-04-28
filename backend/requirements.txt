@@ -1,0 +1,14 @@
+fastapi
+uvicorn
+python-multipart
+sentence-transformers
+scikit-learn
+pdf2image
+pillow
+torch
+torchvision
+transformers
+accelerate
+# Helper for Florence-2
+timm
+einops

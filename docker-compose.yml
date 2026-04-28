@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  # Backend API
+  backend:
+    build: ./backend
+    container_name: resume_backend
+    ports:
+      - "8000:80"
+    volumes:
+      - ./backend/app:/code/app
+    environment:
+      - ENV=development
+
+  # Frontend UI
+  frontend:
+    build: ./frontend
+    container_name: resume_frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend

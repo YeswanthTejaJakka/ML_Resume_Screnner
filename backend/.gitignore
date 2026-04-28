@@ -1,0 +1,39 @@
+# Python internals
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environment (CRITICAL)
+venv/
+env/
+.venv/
+
+# Environment Variables (Secrets)
+.env
+.env.local
+
+# IDE settings
+.vscode/
+.idea/
+
+# Distribution / Builds
+build/
+dist/
+*.egg-info/
+
+# PyTorch / HuggingFace Caches (prevents uploading 5GB+ models)
+*.pth
+*.pt
+*.bin
+*.safetensors
+.cache/
+
+# Local File Uploads (You don't want test resumes on GitHub)
+uploaded_files/
+temp/
+*.pdf
+*.jpg
+*.png
+
+# Logs
+*.log

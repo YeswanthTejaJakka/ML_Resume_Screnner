@@ -1,0 +1,90 @@
+# ===============================
+# Root .gitignore for ML_Project_Resume
+# ===============================
+
+# -------------------------------
+# Python / Backend
+# -------------------------------
+backend/venv/
+backend/.venv/
+backend/env/
+backend/__pycache__/
+backend/**/*.pyc
+backend/**/*.pyo
+backend/**/*.pyd
+backend/.pytest_cache/
+backend/.mypy_cache/
+backend/.coverage
+backend/htmlcov/
+
+# Environment files
+backend/.env
+.env
+
+# Logs
+*.log
+
+# -------------------------------
+# Node / Frontend
+# -------------------------------
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/.vite/
+frontend/.cache/
+
+# npm/yarn/pnpm logs
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/pnpm-debug.log*
+
+# -------------------------------
+# VS Code / IDE
+# -------------------------------
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
+
+.idea/
+*.swp
+*.swo
+
+# -------------------------------
+# OS Files
+# -------------------------------
+.DS_Store
+Thumbs.db
+
+# -------------------------------
+# Temporary Files
+# -------------------------------
+*.tmp
+*.temp
+temp.*
+temp.txt
+Commands.txt
+revamp.txt
+Instructions_for_gemini_cli.txt
+
+# -------------------------------
+# Build / Docker
+# -------------------------------
+*.pid
+*.seed
+
+# -------------------------------
+# C Files / Random Test Files
+# -------------------------------
+*.out
+*.exe
+backend/temp.c
+
+# -------------------------------
+# Misc
+# -------------------------------
+coverage/
+dist/
+build/
