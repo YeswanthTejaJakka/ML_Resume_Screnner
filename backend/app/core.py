@@ -19,7 +19,7 @@ class ResumeMatcher:
         api_key = os.getenv("GEMINI_API_KEY")
         if api_key:
             genai.configure(api_key=api_key)
-            self.gemini = genai.GenerativeModel('gemini-1.5-flash')
+            self.gemini = genai.GenerativeModel('gemini-2.5-flash')
         else:
             self.gemini = None
             print("Warning: GEMINI_API_KEY not found. Detailed analysis will be disabled.")
@@ -44,8 +44,10 @@ class ResumeMatcher:
         Provide a detailed review in JSON format with the following keys:
         - ats_score: (a number between 0-100)
         - summary: (a short professional summary of the fit)
+        - detailed_fit: (a deeper explanation of why they are or are not a good fit for this specific role)
         - strong_matches: (a list of bullet points of skills/experience that match well)
         - gaps: (a list of bullet points of missing requirements or weak areas)
+        - interview_questions: (a list of 3-4 tailored interview questions to ask this candidate)
         
         Ensure the response is valid JSON.
         """

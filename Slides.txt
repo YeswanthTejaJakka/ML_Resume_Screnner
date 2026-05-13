@@ -1,0 +1,72 @@
+AI Resume Screener - Presentation Slides Content
+
+Slide 1: Title & Team
+- Project Name: AI Resume Screener
+- Subtitle: Intelligent Talent Acquisition through Semantic Matching & LLM Analysis
+- Team Member: Jakka Yeswanth Teja (AI212, IIT Ropar)
+- Date: May 2026
+
+Slide 2: Introduction & Problem Statement
+- The "Resume Black Hole": Recruiters spend an average of only 6-7 seconds per resume.
+- Keyword Over-optimization: Traditional ATS (Applicant Tracking Systems) are easily "gamed" by keywords but fail to understand context.
+- Manual Labor: Screening hundreds of PDFs manually is time-consuming, prone to bias, and inefficient.
+
+Slide 3: Proposed Solution - The AI Screener
+- Semantic Understanding: Uses vector embeddings to match the "meaning" of a resume to a job description.
+- LLM-Powered Insight: Provides structured reasoning for every candidate, moving beyond simple scores.
+- Cinematic Experience: A high-fidelity UI that makes the complex process of data analysis visually intuitive and engaging.
+
+Slide 4: System Architecture
+- Frontend: React (Vite) + Framer Motion + Tailwind CSS.
+- Backend: FastAPI (Python) for asynchronous processing.
+- ML Pipeline:
+  - Extraction: Microsoft Florence-2 (OCR)
+  - Ranking: Sentence-Transformers (all-MiniLM-L6-v2)
+  - Reasoning: Google Gemini 2.5 Flash
+
+Slide 5: The "Cinematic" Frontend (UI/UX)
+- Design Philosophy: "Alive" interface using Organic Backgrounds and Kinetic Typography.
+- Interactive Feedback: Magnetic Buttons and Mouse Followers for a premium feel.
+- Real-time Visualization: Progress-based "Scanning" animations during analysis.
+- Glassmorphism: Clean, transparent layouts with backdrop-blur effects.
+
+Slide 6: OCR Engine - Microsoft Florence-2
+- Role: High-fidelity text extraction from complex PDF resumes.
+- Model: microsoft/Florence-2-base.
+- Task-specific: Uses the <OCR> prompt to parse text while maintaining structural integrity.
+- Hardware Optimization: Auto-detects CUDA for GPU acceleration or falls back to CPU.
+
+Slide 7: Semantic Ranking Logic
+- Vectorization: Converts Job Descriptions and Resumes into 384-dimensional embeddings.
+- Similarity Metric: Uses Cosine Similarity to find the mathematical "closeness" between the JD and the candidate's experience.
+- Speed: all-MiniLM-L6-v2 ensures near-instant ranking even for large batches.
+
+Slide 8: LLM Deep Analysis - Gemini 2.5 Flash
+- Expert Persona: Acts as a "Digital Hiring Manager".
+- Multi-dimensional Scoring: Calculates an "ATS Score" based on nuanced fit rather than just keyword overlap.
+- Structured Output: Generates JSON-based summaries, strong matches, and identified gaps.
+
+Slide 9: Interview Question Generation
+- Dynamic Tailoring: Questions are not generic; they are generated based on the specific gaps found in the candidate's resume.
+- Bridging the Gaps: Helps interviewers focus on areas where the candidate may need further validation.
+- Standardized Screening: Ensures every candidate is evaluated against the core requirements of the role.
+
+Slide 10: Implementation Challenges
+- PDF Complexity: Handling multi-column layouts and different font encodings during OCR.
+- Performance: Balancing heavy AI model loads (Florence-2/Transformers) with a responsive user interface.
+- Prompt Engineering: Ensuring consistent JSON outputs from LLMs for reliable frontend rendering.
+
+Slide 11: Deployment & Scalability
+- Containerization: Fully Dockerized (backend, frontend, and db services).
+- Docker Compose: Single-command deployment (docker-compose up).
+- FastAPI Performance: Asynchronous endpoints allow for handling multiple screening requests concurrently.
+
+Slide 12: Future Scope
+- Multi-modal Analysis: Analyzing video introductions or portfolio screenshots.
+- bias Detection: Automated checks for gender or ethnic bias in AI-generated rankings.
+- Integration: APIs for LinkedIn, Indeed, and internal HR management systems.
+
+Slide 13: Conclusion & Q&A
+- Summary: The AI Resume Screener transforms recruitment from a manual bottleneck into a data-driven competitive advantage.
+- Thank You for your time!
+- Questions?

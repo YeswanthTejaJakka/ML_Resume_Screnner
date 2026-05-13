@@ -88,3 +88,12 @@ backend/temp.c
 coverage/
 dist/
 build/
+
+#Useless
+Instructions_for_gemini_cli
+Instruction_TEXFile.txt
+Commands.txt
+revamp.txt
+temp.txt
+report.tex
+Project Report Format.docx.pdf
