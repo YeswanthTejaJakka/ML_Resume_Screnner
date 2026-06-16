@@ -2,62 +2,43 @@
 
 An intelligent tool to screen and rank resumes using Semantic Matching and LLM analysis.
 
-## 🚀 Features
-- **Ranking:** Uses Sentence Transformers to rank resumes by context, not just keywords.
-- **Interview Prep:** Automatically generates tailored interview questions for each candidate.
+## 🚀 Features (Upgraded)
+- **Persistent Storage:** Local PostgreSQL integration saves every screening session.
+- **Recruiter Dashboard:** Search, filter, and review historical screenings.
+- **Ranking:** Uses Sentence Transformers to rank resumes by context.
+- **Interview Prep:** Automatically generates tailored interview questions via Gemini.
 - **Cinematic UI:** Smooth, interactive frontend built with React and Framer Motion.
 
 ## 🛠️ Tech Stack
-- **Backend:** FastAPI, Python, Sentence-Transformers,  Generative AI.
+- **Backend:** FastAPI, Python, SQLAlchemy, PostgreSQL, Sentence-Transformers, Generative AI.
 - **Frontend:** React, Tailwind CSS, Framer Motion, Lucide React.
-- **Deployment:** Docker support (Dockerfile/Docker-compose included).
+- **Infrastructure:** Docker, Docker Compose, Kubernetes.
 
 ## 📦 Setup Instructions
 
-### Backend
-1. Navigate to the `backend` directory.
-2. Confirm that folder first
-3. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-4. Run the server:
-   ```bash
-   python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-   ```
+### 🐳 Docker Deployment (Recommended)
+The easiest way to run the entire stack (Frontend, Backend, and PostgreSQL) is using Docker Compose:
 
-### Frontend
-1. Navigate to the `frontend` directory.
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Start the development server:
-   ```bash
-   npm run dev
-   ```
-
-### 🐳 Docker Deployment
-For a quick setup using Docker:
-
-1. **Build and Start:**
+1. **Configure Environment:**
+   Ensure `backend/.env` has your `GEMINI_API_KEY`.
+2. **Build and Start:**
    ```bash
    docker-compose up --build -d
    ```
-2. **Access the App:**
-   - Frontend: `http://localhost:5173`
-   - Backend: `http://localhost:8000`
+3. **Access the App:**
+   - Frontend: `http://localhost` (or `http://localhost:5173` in dev)
+   - Backend API: `http://localhost:8000`
 
-3. **Stop the Containers:**
+### ☸️ Kubernetes Deployment
+1. **Configure Secrets:** Update `k8s/secrets.yaml` with your API key.
+2. **Deploy:**
    ```bash
-   docker-compose down
+   kubectl apply -f k8s/
    ```
 
 ## 📄 Usage
-1. Paste the **Job Description** in the requirements box.
-2. Upload **Resume PDFs**.
-3. Click **Analyze Candidates**.
-4. View the ranked shortlist and click **View Reasoning** for a detailed breakdown and interview questions.
+1. **Scanner:** Paste Job Description, upload PDFs, and click "Analyze". Results are automatically saved.
+2. **Dashboard:** Switch to the "Dashboard" tab to see history. Search by keywords or filenames, and click any record to reload its full analysis and interview questions.
 
 ---
 *Jakka Yeswanth Teja ©️ 2026., AI212 IIT Ropar Project*

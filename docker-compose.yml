@@ -1,22 +1,70 @@
-version: '3.8'
-
 services:
-  # Backend API
-  backend:
-    build: ./backend
-    container_name: resume_backend
+  db:
+    image: postgres:15-alpine
+    container_name: resume-db
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-resume_screener}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d resume_screener"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend-service:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: resume-backend:latest
     ports:
       - "8000:80"
-    volumes:
-      - ./backend/app:/code/app
-    environment:
-      - ENV=development
-
-  # Frontend UI
-  frontend:
-    build: ./frontend
-    container_name: resume_frontend
-    ports:
-      - "5173:80"
     depends_on:
-      - backend
+      db:
+        condition: service_healthy
+    env_file:
+      - ./backend/.env
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-resume_screener}
+    restart: always
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 4G
+        reservations:
+          cpus: '0.5'
+          memory: 2G
+    labels:
+      kompose.service.type: clusterip
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: resume-frontend:latest
+    ports:
+      - "80:80"
+    depends_on:
+      - backend-service
+    restart: always
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+    labels:
+      kompose.service.type: loadbalancer
+
+volumes:
+  postgres_data:

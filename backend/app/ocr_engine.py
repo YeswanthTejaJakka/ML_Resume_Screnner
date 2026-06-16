@@ -1,5 +1,10 @@
 import torch
 from transformers import AutoProcessor, AutoModelForCausalLM
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 from transformers import dynamic_module_utils
 dynamic_module_utils.check_imports = lambda filename: []
@@ -13,32 +18,35 @@ MODEL_NAME = 'microsoft/Florence-2-base'
 
 class OCRModel:
     def __init__(self):
-        print(f"⏳ Loading Florence-2 Model ({MODEL_NAME})...")
-        
-        # Detect Hardware
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        dtype = torch.float16 if self.device == "cuda" else torch.float32
-
-        self.processor = AutoProcessor.from_pretrained(
-            MODEL_NAME, 
-            trust_remote_code=True
-        )
+        self.model = None
+        self.processor = None
         
-        # We use attn_implementation="sdpa" to ensure it uses 
-        # standard PyTorch attention (compatible with Windows)
-        self.model = AutoModelForCausalLM.from_pretrained(
-            MODEL_NAME, 
-            trust_remote_code=True,
-            torch_dtype=dtype,
-            attn_implementation="sdpa" 
-        ).to(self.device)
+        try:
+            logger.info(f"⏳ Loading Florence-2 Model ({MODEL_NAME}) on {self.device.upper()}...")
+            
+            dtype = torch.float16 if self.device == "cuda" else torch.float32
 
-        print(f"✅ OCR Engine Loaded on {self.device.upper()}")
+            self.processor = AutoProcessor.from_pretrained(
+                MODEL_NAME, 
+                trust_remote_code=True
+            )
+            
+            self.model = AutoModelForCausalLM.from_pretrained(
+                MODEL_NAME, 
+                trust_remote_code=True,
+                torch_dtype=dtype
+            ).to(self.device)
+
+            logger.info(f"✅ OCR Engine Loaded Successfully.")
+        except Exception as e:
+            logger.error(f"❌ Failed to load Florence-2 model: {e}")
 
     def extract_text(self, image_path: str) -> str:
-        """
-        Extracts detailed text from an image using Florence-2.
-        """
+        if not self.model or not self.processor:
+            logger.error("OCR Model or Processor not initialized.")
+            return "OCR Engine unavailable."
+        
         try:
             image = Image.open(image_path)
             if image.mode != "RGB":
@@ -68,7 +76,7 @@ class OCRModel:
             return parsed_answer.get(prompt, "")
 
         except Exception as e:
-            print(f"OCR Error: {e}")
+            logger.error(f"OCR Runtime Error: {e}")
             return ""
 
 # Create Singleton

@@ -6,12 +6,15 @@ import {
   FileText, 
   CheckCircle2, 
   AlertCircle, 
-  ChevronRight, 
   Fingerprint,
   Sparkles,
   Command,
   ArrowRight,
-  X
+  X,
+  Search,
+  Trash2,
+  Calendar,
+  Layers
 } from 'lucide-react';
 import OrganicBackground from './components/OrganicBackground';
 import MagneticButton from './components/MagneticButton';
@@ -20,12 +23,63 @@ import MouseFollower from './components/MouseFollower';
 import BackgroundGrid from './components/BackgroundGrid';
 
 const App = () => {
+  const [activeView, setActiveView] = useState('scanner'); // 'scanner' or 'dashboard'
   const [jobDesc, setJobDesc] = useState('');
   const [files, setFiles] = useState([]);
   const [results, setResults] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState('');
   const [selectedCandidate, setSelectedCandidate] = useState(null);
+
+  // History State
+  const [history, setHistory] = useState([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const fetchHistory = async (search = '') => {
+    setIsHistoryLoading(true);
+    try {
+      const response = await axios.get(`/api/history?search=${search}`);
+      setHistory(response.data);
+    } catch {
+      setError("Failed to fetch history.");
+    } finally {
+      setIsHistoryLoading(false);
+    }
+  };
+
+  const loadScreeningDetail = async (sessionId) => {
+    setIsScanning(true);
+    try {
+      const response = await axios.get(`/api/history/${sessionId}`);
+      // Map candidate results back to frontend format
+      const mapped = response.data.candidate_results.map(c => ({
+        filename: c.filename,
+        score: c.weighted_score,
+        text_snippet: c.resume_text,
+        analysis: c.gemini_analysis
+      }));
+      setResults(mapped);
+      setJobDesc(response.data.job_description?.text || "");
+      setActiveView('scanner');
+      setTimeout(() => handleScrollToResults(), 100);
+    } catch {
+      setError("Failed to load details.");
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
+  const deleteHistoryItem = async (sessionId, e) => {
+    e.stopPropagation();
+    if (!window.confirm("Delete this screening record?")) return;
+    try {
+      await axios.delete(`/api/history/${sessionId}`);
+      fetchHistory(searchQuery);
+    } catch {
+      setError("Failed to delete.");
+    }
+  };
 
   const handleFileChange = (e) => {
     setFiles([...e.target.files]);
@@ -48,18 +102,47 @@ const App = () => {
     });
 
     try {
-      const response = await axios.post('http://localhost:8000/screen', formData, {
+      const response = await axios.post('/api/screen', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       
+      if (response.data.error) {
+        setError(`Processing Error: ${response.data.error}`);
+        setIsScanning(false);
+        return;
+      }
+
+      if (!response.data.candidates_ranked || response.data.candidates_ranked.length === 0) {
+        setError("No candidates found in the analysis results.");
+        setIsScanning(false);
+        return;
+      }
+
       // Keep scanning for a brief moment to feel "processed"
       setTimeout(() => {
-        setResults(response.data.candidates_ranked);
+        // Map backend results to frontend format
+        const mappedResults = response.data.candidates_ranked.map(cand => ({
+          filename: cand.filename,
+          score: cand.score, 
+          text_snippet: cand.text_snippet,
+          analysis: cand.analysis
+        }));
+        setResults(mappedResults);
         setIsScanning(false);
+        setTimeout(() => handleScrollToResults(), 200);
       }, 1000);
       
-    } catch {
-      setError("Ecosystem connection failed. Verify engine status.");
+    } catch (err) {
+      console.error("🔥 Detailed Failure:", err);
+      if (err.response) {
+        // Server responded with a status code outside the 2xx range
+        setError(`Server Error (${err.response.status}): ${err.response.data?.detail || err.response.statusText || "Engine internal failure"}`);
+      } else if (err.request) {
+        // Request was made but no response was received
+        setError("Network Error: No response from engine. Check if containers are healthy and verify Gemini API key.");
+      } else {
+        setError(`Application Error: ${err.message}`);
+      }
       setIsScanning(false);
     }
   };
@@ -86,6 +169,28 @@ const App = () => {
 
       <main className="relative z-10 max-w-7xl mx-auto px-6 pt-12 pb-32">
         
+        {/* Error Display */}
+        <AnimatePresence>
+          {error && (
+            <motion.div 
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="fixed top-24 left-1/2 -translate-x-1/2 z-[100] w-full max-w-md"
+            >
+              <div className="bg-red-500/20 backdrop-blur-xl border border-red-500/30 p-4 rounded-2xl flex items-center justify-between gap-4 shadow-[0_0_30px_rgba(239,68,68,0.2)]">
+                <div className="flex items-center gap-3">
+                  <AlertCircle size={18} className="text-red-400" />
+                  <span className="text-xs font-bold uppercase tracking-widest text-red-200">{error}</span>
+                </div>
+                <button onClick={() => setError('')} className="p-1 hover:bg-white/10 rounded-full transition-colors">
+                  <X size={14} className="text-red-200/50" />
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+        
         {/* Navigation / Header - Floating Glass Pill */}
         <div className="fixed top-8 left-0 right-0 z-50 px-6 pointer-events-none">
           <motion.nav 
@@ -98,140 +203,241 @@ const App = () => {
               <span className="font-serif italic text-lg tracking-tight">AI Resume Screener</span>
             </div>
             <div className="hidden md:flex gap-8 text-[9px] uppercase tracking-[0.4em] font-bold opacity-40">
-              <button onClick={handleScrollToResults} className="cursor-pointer hover:opacity-100 transition-opacity">Launch App</button>
+              <button 
+                onClick={() => setActiveView('scanner')} 
+                className={`cursor-pointer transition-opacity ${activeView === 'scanner' ? 'text-neon-cyan opacity-100' : 'hover:opacity-100'}`}
+              >
+                Scanner
+              </button>
+              <button 
+                onClick={() => {
+                  setActiveView('dashboard');
+                  fetchHistory();
+                }} 
+                className={`cursor-pointer transition-opacity ${activeView === 'dashboard' ? 'text-neon-cyan opacity-100' : 'hover:opacity-100'}`}
+              >
+                Dashboard
+              </button>
             </div>
           </motion.nav>
         </div>
 
-        <section id="app-section" className="grid grid-cols-1 lg:grid-cols-12 gap-16 items-start mt-24">
-          
-          {/* Hero Section */}
-          <div className="lg:col-span-5 space-y-12">
-            <div>
-              <div className="micro-label mb-6 flex items-center gap-2">
-                <Sparkles size={12} className="text-neon-cyan" />
-                <AtmosphericSubtitle text="SCREEN HUNDREDS IN MINUTES..." className="micro-label" targetOpacity={0.6} />
-              </div>
-              
-              <LetterSlideReveal 
-                text="AI Resume Screener" 
-                className="text-7xl md:text-8xl font-serif leading-[0.9] mb-8"
-              />
+        {activeView === 'scanner' ? (
+          <section id="app-section" className="grid grid-cols-1 lg:grid-cols-12 gap-16 items-start mt-24">
+            
+            {/* Hero Section */}
+            <div className="lg:col-span-5 space-y-12">
+              <div>
+                <div className="micro-label mb-6 flex items-center gap-2">
+                  <Sparkles size={12} className="text-neon-cyan" />
+                  <AtmosphericSubtitle text="SCREEN HUNDREDS IN MINUTES..." className="micro-label" targetOpacity={0.6} />
+                </div>
+                
+                <LetterSlideReveal 
+                  text="AI Resume Screener" 
+                  className="text-7xl md:text-8xl font-serif leading-[0.9] mb-8"
+                />
 
-              <ScrollReveal>
-                <p className="text-lg text-white/60 font-light leading-relaxed max-w-md text-balance mb-4">
-                  Screen hundreds of resumes in minutes, not days.
-                </p>
-                <p className="text-sm text-white/40 font-light leading-relaxed max-w-md text-balance mb-8">
-                  Paste your job description, upload resumes, and get a ranked shortlist with clear reasons why each candidate fits the role. No more manual scanning or guesswork.
-                </p>
-              </ScrollReveal>
+                <ScrollReveal>
+                  <p className="text-lg text-white/60 font-light leading-relaxed max-w-md text-balance mb-4">
+                    Screen hundreds of resumes in minutes, not days.
+                  </p>
+                  <p className="text-sm text-white/40 font-light leading-relaxed max-w-md text-balance mb-8">
+                    Paste your job description, upload resumes, and get a ranked shortlist with clear reasons why each candidate fits the role. No more manual scanning or guesswork.
+                  </p>
+                </ScrollReveal>
+              </div>
+
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.8 }}
+                className="flex flex-col sm:flex-row items-start sm:items-center gap-6"
+              >
+                <MagneticButton
+                  onClick={triggerAnalysis}
+                  disabled={isScanning}
+                  className="group relative px-10 py-5 premium-glass glass-border-gradient rounded-full flex items-center gap-4 overflow-hidden transition-all hover:shadow-[0_0_30px_rgba(0,242,255,0.15)]"
+                >
+                  <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-500" />
+                  <span className="relative micro-label opacity-100 text-white tracking-[0.2em]">
+                    {isScanning ? "Scanning..." : "Analyze Candidates"}
+                  </span>
+                  <ArrowRight size={16} className={`relative text-neon-cyan group-hover:translate-x-1 transition-transform ${isScanning ? 'animate-pulse' : ''}`} />
+                </MagneticButton>
+                
+              </motion.div>
             </div>
 
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.8 }}
-              className="flex flex-col sm:flex-row items-start sm:items-center gap-6"
-            >
-              <MagneticButton
-                onClick={triggerAnalysis}
-                disabled={isScanning}
-                className="group relative px-10 py-5 premium-glass glass-border-gradient rounded-full flex items-center gap-4 overflow-hidden transition-all hover:shadow-[0_0_30px_rgba(0,242,255,0.15)]"
-              >
-                <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-500" />
-                <span className="relative micro-label opacity-100 text-white tracking-[0.2em]">
-                  {isScanning ? "Scanning..." : "Analyze Candidates"}
-                </span>
-                <ArrowRight size={16} className={`relative text-neon-cyan group-hover:translate-x-1 transition-transform ${isScanning ? 'animate-pulse' : ''}`} />
-              </MagneticButton>
+            {/* Cards Section */}
+            <div className="lg:col-span-7 grid grid-cols-1 md:grid-cols-2 gap-8 relative">
               
-            </motion.div>
-          </div>
-
-          {/* Cards Section */}
-          <div className="lg:col-span-7 grid grid-cols-1 md:grid-cols-2 gap-8 relative">
-            
-            {/* Scanning Line Animation */}
-            <AnimatePresence>
-              {isScanning && (
-                <motion.div 
-                  initial={{ top: "0%", opacity: 0 }}
-                  animate={{ top: "100%", opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ 
-                    top: { duration: 2, repeat: Infinity, ease: "linear" },
-                    opacity: { duration: 0.3 }
-                  }}
-                  className="scan-line"
-                />
-              )}
-            </AnimatePresence>
-
-            {/* Job Description Card */}
-            <motion.div
-              initial={{ opacity: 0, y: 50 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ ...springTransition, delay: 0.3 }}
-              className="premium-glass glass-border-gradient p-10 rounded-[40px] space-y-6 group bg-white/[0.03]"
-            >
-              <div className="flex justify-between items-start">
-                <div className="w-12 h-12 rounded-2xl bg-neon-cyan/20 flex items-center justify-center">
-                  <FileText size={20} className="text-neon-cyan" />
-                </div>
-                <div className="micro-label">01 / Input</div>
-              </div>
-              <h3 className="text-2xl font-serif italic">Requirements</h3>
-              <textarea
-                value={jobDesc}
-                onChange={(e) => setJobDesc(e.target.value)}
-                placeholder="Describe the ideal candidate profile..."
-                className="w-full h-48 bg-transparent border-none text-white/80 placeholder:text-white/20 outline-none resize-none font-sans text-sm leading-relaxed"
-              />
-              <div className="pt-4 border-t border-white/10">
-                <div className="flex items-center gap-2 opacity-40 group-hover:opacity-100 transition-opacity">
-                  <Command size={14} />
-                  <span className="text-[10px] uppercase tracking-widest font-bold">Semantic Engine Active</span>
-                </div>
-              </div>
-            </motion.div>
-
-            {/* Upload Card */}
-            <motion.div
-              initial={{ opacity: 0, y: 50 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ ...springTransition, delay: 0.4 }}
-              className="premium-glass glass-border-gradient p-10 rounded-[40px] space-y-6 group mt-12 md:mt-24 bg-white/[0.03]"
-            >
-              <div className="flex justify-between items-start">
-                <div className="w-12 h-12 rounded-2xl bg-royal-purple/20 flex items-center justify-center">
-                  <Upload size={20} className="text-royal-purple" />
-                </div>
-                <div className="micro-label">02 / Source</div>
-              </div>
-              <h3 className="text-2xl font-serif italic">Documents</h3>
-              <div className="relative h-48 border border-dashed border-white/20 rounded-[30px] flex flex-col items-center justify-center hover:bg-white/[0.05] transition-colors cursor-pointer group/upload">
-                <input 
-                  type="file" multiple accept=".pdf" onChange={handleFileChange}
-                  className="absolute inset-0 opacity-0 cursor-pointer z-10"
-                />
-                <div className="p-4 rounded-full bg-white/10 mb-4 group-hover/upload:scale-110 transition-transform">
-                  <Upload size={18} className="text-white/60" />
-                </div>
-                <span className="text-[10px] uppercase tracking-[0.2em] font-bold opacity-40">Drop PDFs here</span>
-                {files.length > 0 && (
-                  <div className="mt-4 px-4 py-1 rounded-full glass border border-white/20 text-[10px] font-bold text-neon-cyan bg-neon-cyan/10">
-                    {files.length} Files Cached
-                  </div>
+              {/* Scanning Line Animation */}
+              <AnimatePresence>
+                {isScanning && (
+                  <motion.div 
+                    initial={{ top: "0%", opacity: 0 }}
+                    animate={{ top: "100%", opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ 
+                      top: { duration: 2, repeat: Infinity, ease: "linear" },
+                      opacity: { duration: 0.3 }
+                    }}
+                    className="scan-line"
+                  />
                 )}
+              </AnimatePresence>
+
+              {/* Job Description Card */}
+              <motion.div
+                initial={{ opacity: 0, y: 50 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ ...springTransition, delay: 0.3 }}
+                className="premium-glass glass-border-gradient p-10 rounded-[40px] space-y-6 group bg-white/[0.03]"
+              >
+                <div className="flex justify-between items-start">
+                  <div className="w-12 h-12 rounded-2xl bg-neon-cyan/20 flex items-center justify-center">
+                    <FileText size={20} className="text-neon-cyan" />
+                  </div>
+                  <div className="micro-label">01 / Input</div>
+                </div>
+                <h3 className="text-2xl font-serif italic">Requirements</h3>
+                <textarea
+                  value={jobDesc}
+                  onChange={(e) => setJobDesc(e.target.value)}
+                  placeholder="Describe the ideal candidate profile..."
+                  className="w-full h-48 bg-transparent border-none text-white/80 placeholder:text-white/20 outline-none resize-none font-sans text-sm leading-relaxed"
+                />
+                <div className="pt-4 border-t border-white/10">
+                  <div className="flex items-center gap-2 opacity-40 group-hover:opacity-100 transition-opacity">
+                    <Command size={14} />
+                    <span className="text-[10px] uppercase tracking-widest font-bold">ML Model Engine Active</span>
+                  </div>
+                </div>
+              </motion.div>
+
+              {/* Upload Card */}
+              <motion.div
+                initial={{ opacity: 0, y: 50 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ ...springTransition, delay: 0.4 }}
+                className="premium-glass glass-border-gradient p-10 rounded-[40px] space-y-6 group mt-12 md:mt-24 bg-white/[0.03]"
+              >
+                <div className="flex justify-between items-start">
+                  <div className="w-12 h-12 rounded-2xl bg-royal-purple/20 flex items-center justify-center">
+                    <Upload size={20} className="text-royal-purple" />
+                  </div>
+                  <div className="micro-label">02 / Source</div>
+                </div>
+                <h3 className="text-2xl font-serif italic">Documents</h3>
+                <div className="relative h-48 border border-dashed border-white/20 rounded-[30px] flex flex-col items-center justify-center hover:bg-white/[0.05] transition-colors cursor-pointer group/upload">
+                  <input 
+                    type="file" multiple accept=".pdf" onChange={handleFileChange}
+                    className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                  />
+                  <div className="p-4 rounded-full bg-white/10 mb-4 group-hover/upload:scale-110 transition-transform">
+                    <Upload size={18} className="text-white/60" />
+                  </div>
+                  <span className="text-[10px] uppercase tracking-[0.2em] font-bold opacity-40">Drop PDFs here</span>
+                  {files.length > 0 && (
+                    <div className="mt-4 px-4 py-1 rounded-full glass border border-white/10 text-[10px] font-bold text-neon-cyan bg-neon-cyan/10">
+                      {files.length} Files Cached
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            </div>
+          </section>
+        ) : (
+          <section className="mt-24 space-y-12 min-h-[60vh]">
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
+              <div className="space-y-4">
+                <div className="micro-label">Recruiter Dashboard</div>
+                <h2 className="text-5xl font-serif italic">Screening History</h2>
               </div>
-            </motion.div>
-          </div>
-        </section>
+              <div className="relative group max-w-md w-full">
+                <input 
+                  type="text"
+                  placeholder="Search by keywords or candidate..."
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    fetchHistory(e.target.value);
+                  }}
+                  className="w-full bg-white/[0.03] border border-white/10 rounded-full px-8 py-4 text-sm outline-none focus:border-neon-cyan/50 transition-all placeholder:text-white/20"
+                />
+                <Search className="absolute right-6 top-1/2 -translate-y-1/2 text-white/20" size={16} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4">
+              {isHistoryLoading ? (
+                <div className="py-20 flex flex-col items-center justify-center space-y-4 opacity-40">
+                  <div className="w-12 h-12 border-2 border-neon-cyan border-t-transparent rounded-full animate-spin" />
+                  <div className="micro-label uppercase tracking-widest">Querying database...</div>
+                </div>
+              ) : history.length > 0 ? (
+                history.map((item) => (
+                  <motion.div 
+                    key={item.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    onClick={() => loadScreeningDetail(item.id)}
+                    className="group premium-glass glass-border-gradient p-6 rounded-[25px] flex flex-col md:flex-row items-center justify-between gap-8 cursor-pointer hover:bg-white/[0.05] transition-all"
+                  >
+                    <div className="flex items-center gap-8 w-full md:w-auto">
+                      <div className="w-16 h-16 rounded-2xl bg-white/[0.03] border border-white/5 flex flex-col items-center justify-center font-serif">
+                        <span className="text-xs text-white/40 leading-none">ID</span>
+                        <span className="text-xl text-neon-cyan">{item.id}</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest font-bold text-white/40 mb-1">
+                          <Calendar size={10} />
+                          {new Date(item.created_at).toLocaleDateString(undefined, { dateStyle: 'long' })}
+                        </div>
+                        <h4 className="text-lg font-serif italic truncate max-w-md">{item.job_description_preview}</h4>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-12 w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 border-white/5 pt-4 md:pt-0">
+                      <div className="text-center">
+                        <div className="micro-label mb-1">Candidates</div>
+                        <div className="text-xl font-serif flex items-center justify-center gap-2">
+                          <Layers size={14} className="text-white/20" />
+                          {item.candidate_count}
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <div className="micro-label mb-1">Top Match</div>
+                        <div className="text-xl font-serif text-neon-cyan">{item.top_score}%</div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button 
+                          onClick={(e) => deleteHistoryItem(item.id, e)}
+                          className="p-3 rounded-xl bg-white/[0.03] border border-white/5 hover:bg-red-500/10 hover:border-red-500/20 transition-all text-white/40 hover:text-red-400"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                        <div className="p-3 rounded-xl bg-neon-cyan/10 border border-neon-cyan/20 text-neon-cyan group-hover:translate-x-1 transition-transform">
+                          <ArrowRight size={16} />
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))
+              ) : (
+                <div className="py-20 flex flex-col items-center justify-center space-y-4 opacity-40 border border-dashed border-white/10 rounded-[40px]">
+                  <FileText size={40} />
+                  <div className="micro-label uppercase tracking-widest">No screenings found in history</div>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
 
         {/* Results Section */}
         <AnimatePresence>
-          {results && (
+          {results && activeView === 'scanner' && (
             <motion.section 
               id="results-section"
               initial={{ opacity: 0, y: 100 }}
@@ -396,7 +602,7 @@ const App = () => {
                   ) : (
                     <div className="h-full flex flex-col items-center justify-center text-center space-y-4 opacity-40">
                       <Sparkles size={40} className="animate-pulse" />
-                      <p className="micro-label">Detailed AI Review Unavailable<br/>Semantic match score displayed above</p>
+                      <p className="micro-label">Detailed AI Review Unavailable<br/>ML Model match score displayed above</p>
                     </div>
                   )}
                 </div>
@@ -415,8 +621,8 @@ const App = () => {
           </div>
           <div className="micro-label mb-0">© 2026. Built with React & FastAPI.</div>
           <div className="flex gap-6 text-[10px] uppercase tracking-widest font-bold opacity-40">
-            <a href="#" className="hover:text-neon-cyan transition-colors">GitHub</a>
-            <a href="#" className="hover:text-neon-cyan transition-colors">LinkedIn</a>
+            <a href="https://github.com/YeswanthTejaJakka/ML_Resume_Screnner" className="hover:text-neon-cyan transition-colors">GitHub</a>
+            <a href="https://www.linkedin.com/in/yeswanth-teja/" className="hover:text-neon-cyan transition-colors">LinkedIn</a>
           </div>
         </div>
       </footer>

@@ -1,3 +1,13 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+# Pinned versions for Florence-2 compatibility
+torch==2.4.1
+torchvision==0.19.1
+transformers==4.46.3
+
+# High-speed text extraction
+pymupdf
+
 fastapi
 uvicorn
 python-multipart
@@ -5,10 +15,11 @@ sentence-transformers
 scikit-learn
 pdf2image
 pillow
-torch
-torchvision
-transformers
 accelerate
 # Helper for Florence-2
-timm
-einops
+timm==1.0.11
+einops==0.8.0
+google-generativeai
+python-dotenv
+sqlalchemy
+psycopg2-binary

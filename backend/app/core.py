@@ -1,30 +1,52 @@
+import os
+from dotenv import load_dotenv
+import logging
+import time
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Set environment variables BEFORE importing AI libraries
+os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
+
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 import google.generativeai as genai
-import os
 import json
-from dotenv import load_dotenv
 
 load_dotenv()
 
 class ResumeMatcher:
     def __init__(self):
-        # We use a lightweight model designed for efficiency/speed
-        print("Loading AI Model... (this may take a few seconds)")
-        self.model = SentenceTransformer('all-MiniLM-L6-v2')
-        print("Model Loaded.")
+        self.model = None
+        self.gemini = None
+        
+        try:
+            # We use a lightweight model designed for efficiency/speed
+            logger.info("⏳ Loading Sentence Transformer Model (all-MiniLM-L6-v2)...")
+            self.model = SentenceTransformer('all-MiniLM-L6-v2')
+            logger.info("✅ Sentence Transformer Model Loaded.")
+        except Exception as e:
+            logger.error(f"❌ Failed to load Sentence Transformer model: {e}")
         
         # Configure Gemini
         api_key = os.getenv("GEMINI_API_KEY")
         if api_key:
-            genai.configure(api_key=api_key)
-            self.gemini = genai.GenerativeModel('gemini-2.5-flash')
+            try:
+                genai.configure(api_key=api_key)
+                self.gemini = genai.GenerativeModel('gemini-2.5-flash')
+                logger.info("✅ Gemini AI Configured.")
+            except Exception as e:
+                logger.error(f"❌ Failed to configure Gemini AI: {e}")
         else:
-            self.gemini = None
-            print("Warning: GEMINI_API_KEY not found. Detailed analysis will be disabled.")
+            logger.warning("⚠️ GEMINI_API_KEY not found. Detailed analysis will be disabled.")
 
     def get_embedding(self, text: str):
+        if not self.model:
+            logger.error("Sentence Transformer model not loaded.")
+            return np.zeros((1, 384)) # Default size for MiniLM-L6-v2
         return self.model.encode(text)
 
     def generate_detailed_analysis(self, job_description: str, resume_text: str):
@@ -39,7 +61,7 @@ class ResumeMatcher:
         {job_description}
         
         Resume:
-        {resume_text}
+        {resume_text[:4000]}
         
         Provide a detailed review in JSON format with the following keys:
         - ats_score: (a number between 0-100)
@@ -63,7 +85,7 @@ class ResumeMatcher:
             
             return json.loads(text)
         except Exception as e:
-            print(f"Gemini Analysis Error: {e}")
+            logger.error(f"Gemini Analysis Error: {e}")
             return None
 
     def rank_resumes(self, job_description: str, resumes: list):
@@ -87,8 +109,13 @@ class ResumeMatcher:
             analysis = self.generate_detailed_analysis(job_description, res['text'])
             
             # If AI score is available, use it as a more precise ATS score
-            final_score = analysis.get('ats_score', base_score) if analysis else base_score
-            
+            gemini_score = analysis.get('ats_score', base_score) if analysis else base_score
+
+            final_score = round(
+                0.75 * base_score +
+                0.25 * gemini_score,
+                2
+            )
             results.append({
                 "filename": res['filename'],
                 "score": final_score,
